@@ -22,6 +22,7 @@ import os
 from subprocess import Popen
 from subprocess import PIPE
 import sys
+from time import sleep
 
 from mrjob.conf import combine_dicts
 from mrjob.sim import SimMRJobRunner
@@ -120,6 +121,9 @@ class LocalMRJobRunner(SimMRJobRunner):
         * *cmdenv* is combined with :py:func:`~mrjob.conf.combine_local_envs`
         * *python_bin* defaults to ``sys.executable`` (the current python
           interpreter)
+        * *max_subprocesses* is used to limit the number of subprocesses which
+          are running at any one given time, defaulting to 10. None to have no
+          limit.
         * *hadoop_extra_args*, *hadoop_input_format*, *hadoop_output_format*,
           *hadoop_streaming_jar*, and *partitioner* are ignored because they
           require Java. If you need to test these, consider starting up a
@@ -130,6 +134,7 @@ class LocalMRJobRunner(SimMRJobRunner):
         self._map_tasks = DEFAULT_MAP_TASKS
         self._reduce_tasks = DEFAULT_REDUCE_TASKS
         self._all_proc_dicts = None
+        self._max_subprocesses = kwargs.get("max_subprocesses", 10)
 
         # jobconf variables set by our own job (e.g. files "uploaded")
         #
@@ -149,6 +154,26 @@ class LocalMRJobRunner(SimMRJobRunner):
         elif step_type == 'reducer':
             procs_args = self._reducer_arg_chain(
                 step_dict, step_num, input_file)
+
+        # Block until there is another slot to run the subprocess
+        logged = False
+        while self._max_subprocesses:
+            running = sum(
+                p['proc'].poll() is None for p in self._all_proc_dicts
+            )
+            if running < self._max_subprocesses:
+                log.info("Spawning new subprocess (%d/%d running)" % (
+                    running,
+                    self._max_subprocesses
+                ))
+                break
+            elif not logged:
+                log.info("Waiting to spawn new subprocess (%d/%d running)" % (
+                    running,
+                    self._max_subprocesses
+                ))
+                logged = True
+            sleep(0.1)
 
         proc_dicts = self._invoke_processes(
             procs_args, outfile_name, env=env)
