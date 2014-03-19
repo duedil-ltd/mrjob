@@ -360,11 +360,9 @@ def hadoop_fs_put(stdout, stderr, environ, *args):
         src_url = urlparse(src)
         if src_url.scheme in ('file', ''):
             src = src_url.path
-        elif src_url.scheme == 'hdfs':
-            src = hdfs_path_to_real_path(src, environ)
         else:
-            raise ValueError("hadoop fs -put mock supports only empty, "
-                             "'file', and 'hdfs' schemes: %s" % src)
+            raise ValueError("hadoop fs -put mock supports only empty or "
+                             "'file' schemes for input: %s" % src)
 
         shutil.copy(src, real_dst)
 
