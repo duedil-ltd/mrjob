@@ -96,9 +96,6 @@ def hdfs_path_to_real_path(hdfs_path, environ):
     scheme = components.scheme
     path = components.path
 
-    if scheme == 'file':
-        return path
-
     if not scheme and not path.startswith('/'):
         path = '/user/%s/%s' % (environ['USER'], path)
 
@@ -360,7 +357,16 @@ def hadoop_fs_put(stdout, stderr, environ, *args):
             skipped = True
             continue
 
-        shutil.copy(hdfs_path_to_real_path(src, environ), real_dst)
+        src_url = urlparse(src)
+        if src_url.scheme in ('file', ''):
+            src = src_url.path
+        elif src_url.scheme == 'hdfs':
+            src = hdfs_path_to_real_path(src, environ)
+        else:
+            raise ValueError("hadoop fs -put mock supports only empty, "
+                             "'file', and 'hdfs' schemes: %s" % src)
+
+        shutil.copy(src, real_dst)
 
     return 255 if skipped else 0
 
