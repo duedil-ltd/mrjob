@@ -199,6 +199,9 @@ class MockKey(object):
         with open(path, 'w') as f:
             f.write(self.read_mock_data())
 
+    def set_contents_from_file(self, fileobj):
+        self.write_mock_data(fileobj.read())
+
     def set_contents_from_filename(self, path):
         with open(path) as f:
             self.write_mock_data(f.read())

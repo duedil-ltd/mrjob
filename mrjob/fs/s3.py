@@ -166,7 +166,18 @@ class S3Filesystem(Filesystem):
         if key and key.size != 0:
             raise OSError('Non-empty file %r already exists!' % (path,))
 
-        self.make_s3_key(path).set_contents_from_string(content)
+        key = self.make_s3_key(path)
+        try:
+            key.set_contents_from_file(content)
+        except AttributeError:
+            key.set_contents_from_string(content)
+
+    def copy_from_local(self, path, local_file):
+        key = self.get_s3_key(path)
+        if key and key.size != 0:
+            raise OSError('Non-empty file %r already exists!' % (path,))
+
+        self.make_s3_key(path).set_contents_from_filename(local_file)
 
     def mkdir(self, dest):
         """Make a directory. This does nothing on S3 because there are

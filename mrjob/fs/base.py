@@ -41,9 +41,16 @@ class Filesystem(object):
                 yield line
 
     def write(self, path, content):
-        """Write content to a given ``path``.
+        """Write content (string or file object) to a given ``path``.
 
         Corresponds roughly to: ``hadoop fs -put <( echo content ) path``
+        """
+        raise NotImplementedError
+
+    def copy_from_local(self, path, local_file):
+        """Copy the content of a local file to the given ``path``.
+
+        Corresponds roughly to: ``hadoop fs -copyFromLocal local_file path``
         """
         raise NotImplementedError
 

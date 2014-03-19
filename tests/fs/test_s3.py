@@ -31,6 +31,7 @@ from tests.sandbox import SandboxedTestCase
 class S3FSTestCase(SandboxedTestCase):
 
     def setUp(self):
+        super(S3FSTestCase, self).setUp()
         self.sandbox_boto()
         self.addCleanup(self.unsandbox_boto)
         self.fs = S3Filesystem('key_id', 'secret', 'nowhere')
@@ -133,7 +134,7 @@ class S3FSTestCase(SandboxedTestCase):
         self.fs.rm(path)
         self.assertEqual(self.fs.path_exists(path), False)
 
-    def test_write(self):
+    def test_write_str(self):
         # Ensure that the test bucket exists
         self.add_mock_s3_data('walrus', 'old-things', 'ensure bucket exists')
 
@@ -141,6 +142,32 @@ class S3FSTestCase(SandboxedTestCase):
         content = 'some content!\n'
         self.fs.write(path, content)
         self.assertEqual("".join(self.fs.cat(path)), content)
+
+    def test_write_file(self):
+        # Ensure that the test bucket exists
+        self.add_mock_s3_data('walrus', 'old-things', 'ensure bucket exists')
+
+        path = "s3://walrus/other-new-things"
+        content = StringIO('further content!\n')
+        self.fs.write(path, content)
+        self.assertEqual("".join(self.fs.cat(path)), content.getvalue())
+
+    def test_copy_from_local(self):
+        # Ensure that the test bucket exists
+        self.add_mock_s3_data('walrus', 'old-things', 'ensure bucket exists')
+
+        content = 'file filler\n'
+        dst = 's3://walrus/new-things'
+        src = self.makefile('local-source', content)
+
+        self.fs.copy_from_local(dst, src)
+        self.assertEqual("".join(self.fs.cat(dst)), content)
+
+    def test_copy_from_local_override(self):
+        self.add_mock_s3_data('walrus', 'exists', 'ensure bucket exists')
+        src = self.makefile('local-source', 'content')
+        self.assertRaises(OSError, self.fs.copy_from_local,
+                          's3://walrus/exists', src)
 
     def test_overwrite(self):
         path = self.add_mock_s3_data('walrus', 'existing/file', 'herp')

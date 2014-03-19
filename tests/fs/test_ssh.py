@@ -140,3 +140,7 @@ class SSHFSTestCase(MockSubprocessTestCase):
     def test_write(self):
         # not imlemented
         self.assertRaises(IOError, self.fs.write, 'ssh://testmaster/new', 'x')
+
+    def test_copy_from_local(self):
+        self.assertRaises(IOError, self.fs.copy_from_local,
+                          'ssh://testmaster/dst', '/tmp/fail')

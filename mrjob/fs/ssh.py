@@ -129,3 +129,6 @@ class SSHFilesystem(Filesystem):
 
     def write(self, path, content):
         raise IOError()  # not implemented
+
+    def copy_from_local(self, path, local_file):
+        raise IOError()  # not implemented
