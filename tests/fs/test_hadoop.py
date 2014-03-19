@@ -121,11 +121,6 @@ class HadoopFSTestCase(MockSubprocessTestCase):
         dst = 'hdfs:///hadoop-copy'
         src = self.makefile('local-source', content)
 
-        # We create hdfs:///{src} to ensure that we're later reading from the
-        # correct filesystem. /{src} would default to hdfs:///{src} which we
-        # want to ensure against.
-        self.make_mock_file('hdfs://%s' % src, 'wrong %s' % content)
-
         self.fs.copy_from_local(dst, src)
         self.assertEqual("".join(self.fs.cat(dst)), content)
 
