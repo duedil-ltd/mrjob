@@ -13,10 +13,14 @@
 # limitations under the License.
 import logging
 import posixpath
+import os
+import shutil
 import re
 from subprocess import Popen
 from subprocess import PIPE
 from subprocess import CalledProcessError
+from tempfile import mkstemp
+from urlparse import urlunparse
 
 try:
     from cStringIO import StringIO
@@ -107,6 +111,30 @@ class HadoopFilesystem(Filesystem):
             return stdout
         else:
             return proc.returncode
+
+    def write(self, path, content):
+        fd, content_path = mkstemp(suffix='hadoop-upload')
+        with os.fdopen(fd, 'w') as f:
+            try:
+                shutil.copyfileobj(content, f)
+            except AttributeError:
+                shutil.copyfileobj(StringIO(content), f)
+        try:
+            self.copy_from_local(path, content_path)
+        finally:
+            os.remove(content_path)
+
+    def copy_from_local(self, path, local_file):
+        # Ensure that local_file has a file:/// at the beginning...
+        local_file = urlparse(local_file)
+        assert local_file.scheme in ('', 'test'), "local_file must be local"
+        assert os.path.exists(local_file.path), "local_file must exist"
+        local_file = urlunparse(['file'] + list(local_file[1:]))
+
+        try:
+            self.invoke_hadoop(['fs', '-put', local_file, path])
+        except CalledProcessError as e:
+            raise OSError("Could not create file: %s" % e)
 
     def du(self, path_glob):
         """Get the size of a file, or None if it's not a file or doesn't

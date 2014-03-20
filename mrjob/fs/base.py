@@ -40,6 +40,20 @@ class Filesystem(object):
             for line in self._cat_file(filename):
                 yield line
 
+    def write(self, path, content):
+        """Write content (string or file object) to a given ``path``.
+
+        Corresponds roughly to: ``hadoop fs -put <( echo content ) path``
+        """
+        raise NotImplementedError
+
+    def copy_from_local(self, path, local_file):
+        """Copy the content of a local file to the given ``path``.
+
+        Corresponds roughly to: ``hadoop fs -copyFromLocal local_file path``
+        """
+        raise NotImplementedError
+
     def du(self, path_glob):
         """Get the total size of files matching ``path_glob``
 

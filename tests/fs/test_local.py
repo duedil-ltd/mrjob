@@ -17,6 +17,11 @@ import bz2
 import gzip
 import os
 
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
+
 from mrjob.fs.local import LocalFilesystem
 
 from tests.sandbox import SandboxedTestCase
@@ -43,6 +48,34 @@ class LocalFSTestCase(SandboxedTestCase):
         self.assertEqual(self.fs.du(self.tmp_dir), 8)
         self.assertEqual(self.fs.du(data_path_1), 4)
         self.assertEqual(self.fs.du(data_path_2), 4)
+
+    def test_write_str(self):
+        path = self.abs_paths('new-str')[0]
+        content = 'some content!'
+        self.fs.write(path, content)
+        self.assertEqual("".join(self.fs.cat(path)), content)
+
+    def test_write_file(self):
+        path = self.abs_paths('new-fileobj')[0]
+        content = StringIO('some content!')
+        self.fs.write(path, content)
+        self.assertEqual("".join(self.fs.cat(path)), content.getvalue())
+
+    def test_overwrite(self):
+        path = self.makefile('existing', 'herp')
+        self.assertRaises(OSError, self.fs.write, path, 'derp')
+
+    def test_copy_from_local(self):
+        content = 'Never poke a bear in the zoo'
+        src = self.makefile('copy-src', content)
+        dst = self.abs_paths('copy-dst')[0]
+        self.fs.copy_from_local(dst, src)
+        self.assertEqual("".join(self.fs.cat(dst)), content)
+
+    def test_copy_from_local_override(self):
+        src = self.makefile('copy-src', 'in')
+        dst = self.makefile('copy-dst', 'out')
+        self.assertRaises(OSError, self.fs.copy_from_local, dst, src)
 
     def test_ls_empty(self):
         self.assertEqual(list(self.fs.ls(self.tmp_dir)), [])

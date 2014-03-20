@@ -13,6 +13,11 @@
 # limitations under the License.
 import os
 
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
+
 from mrjob.fs.hadoop import HadoopFilesystem
 from mrjob.fs import hadoop as fs_hadoop
 
@@ -93,6 +98,37 @@ class HadoopFSTestCase(MockSubprocessTestCase):
 
         self.assertEqual(list(self.fs._cat_file(remote_path)),
                          ['foo\n', 'foo\n'])
+
+    def test_write_str(self):
+        path = 'hdfs:///write-test-str'
+        content = 'some content!'
+        self.fs.write(path, content)
+        self.assertEqual("".join(self.fs.cat(path)), content)
+
+    def test_write_file(self):
+        path = 'hdfs:///write-test-fileobj'
+        content = StringIO('some content!')
+        self.fs.write(path, content)
+        self.assertEqual("".join(self.fs.cat(path)), content.getvalue())
+
+    def test_write_overwrite(self):
+        self.make_mock_file('existing', 'this file already exists')
+        self.assertRaises(OSError, self.fs.write, 'hdfs:///existing',
+                          'can not overwrite')
+
+    def test_copy_from_local(self):
+        content = 'file filler'
+        dst = 'hdfs:///hadoop-copy'
+        src = self.makefile('local-source', content)
+
+        self.fs.copy_from_local(dst, src)
+        self.assertEqual("".join(self.fs.cat(dst)), content)
+
+    def test_copy_from_local_override(self):
+        src = self.makefile('local-source', 'source')
+        self.make_mock_file('existing', 'this file already exists')
+        self.assertRaises(OSError, self.fs.copy_from_local,
+                          'hdfs:///existing', src)
 
     def test_du(self):
         self.make_mock_file('data1', 'abcd')

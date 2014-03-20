@@ -17,6 +17,11 @@ import logging
 import os
 import shutil
 
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
+
 from mrjob.fs.base import Filesystem
 from mrjob.parse import is_uri
 from mrjob.util import read_file
@@ -31,6 +36,20 @@ class LocalFilesystem(Filesystem):
     """
     def can_handle_path(self, path):
         return not is_uri(path)
+
+    def write(self, path, content):
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+        with os.fdopen(fd, 'w') as f:
+            try:
+                shutil.copyfileobj(content, f)
+            except AttributeError:
+                shutil.copyfileobj(StringIO(content), f)
+
+    def copy_from_local(self, path, local_file):
+        if os.path.exists(path):
+            raise OSError('Non-empty file %r already exists!' % (path,))
+        self.mkdir(os.path.dirname(path))
+        shutil.copy(local_file, path)
 
     def du(self, path_glob):
         return sum(os.path.getsize(path) for path in self.ls(path_glob))
