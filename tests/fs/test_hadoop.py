@@ -162,6 +162,22 @@ class HadoopFSTestCase(MockSubprocessTestCase):
         self.fs.rm('hdfs:///f')
         self.assertEqual(os.path.exists(local_path), False)
 
+    def test_rm_dir(self):
+        # Create some test files to remove
+        base_dir = 'hdfs:///icio/goodbye/'
+        test_files = ["%s%s" % (base_dir, f) for f in (
+            'f', 'g/a/b', 'g/a/a/b'
+        )]
+        for f in test_files:
+            self.make_mock_file(f[8:] if f.startswith('hdfs:///') else f)
+        self.assertEqual(list(self.fs.ls(base_dir)), test_files)
+
+        # Remove the directory of files. Importantly: the path that we're using
+        # to remove files does NOT end in /* here. We're pointing to the
+        # directory and it is implied that all of its contents should go too
+        self.fs.rm(base_dir)
+        self.assertEqual(list(self.fs.ls(base_dir)), [])
+
     def test_touchz(self):
         # mockhadoop doesn't implement this.
         pass

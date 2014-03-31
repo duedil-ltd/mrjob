@@ -134,6 +134,24 @@ class S3FSTestCase(SandboxedTestCase):
         self.fs.rm(path)
         self.assertEqual(self.fs.path_exists(path), False)
 
+    def test_rm_dir_files(self):
+        # Create some test files to remove
+        base_dir = 'icio/goodbye/'
+        test_files = {
+            self.add_mock_s3_data('walrus', "%s%s" % (base_dir, f), 'boop')
+            for f in (
+                'f', 'g/a/a/b', 'g/a/b'
+            )
+        }
+        base_dir = "s3://walrus/%s" % base_dir
+        self.assertEqual(set(self.fs.ls(base_dir)), test_files)
+
+        # Remove the directory of files. Importantly: the path that we're using
+        # to remove files does NOT end in /* here. We're pointing to the
+        # directory and it is implied that all of its contents should go too
+        self.fs.rm(base_dir)
+        self.assertEqual(list(self.fs.ls(base_dir)), [])
+
     def test_write_str(self):
         # Ensure that the test bucket exists
         self.add_mock_s3_data('walrus', 'old-things', 'ensure bucket exists')
