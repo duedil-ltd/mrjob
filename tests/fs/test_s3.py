@@ -137,12 +137,12 @@ class S3FSTestCase(SandboxedTestCase):
     def test_rm_dir_files(self):
         # Create some test files to remove
         base_dir = 'icio/goodbye/'
-        test_files = {
+        test_files = set(
             self.add_mock_s3_data('walrus', "%s%s" % (base_dir, f), 'boop')
             for f in (
                 'f', 'g/a/a/b', 'g/a/b'
             )
-        }
+        )
         base_dir = "s3://walrus/%s" % base_dir
         self.assertEqual(set(self.fs.ls(base_dir)), test_files)
 
