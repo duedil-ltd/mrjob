@@ -95,6 +95,20 @@ class SandboxedTestCase(EmptyMrjobConfTestCase):
         os.environ.clear()
         os.environ.update(self._old_environ)
 
+    def maketree(self, path, files=None):
+        path = self.makedirs(path)
+        if files is None:
+            files = ('f', 'g/a/b', 'g/a/a/b')
+        test_files = [
+            self.makefile(os.path.join(path, f), f)
+            for f in files
+        ]
+        self.assertEqual(
+            list(self.fs.ls(path.rstrip('/') + '/*')),
+            test_files
+        )
+        return path
+
     def makedirs(self, path):
         abs_path = os.path.join(self.tmp_dir, path)
         if not os.path.isdir(abs_path):
@@ -102,7 +116,7 @@ class SandboxedTestCase(EmptyMrjobConfTestCase):
         return abs_path
 
     def makefile(self, path, contents):
-        self.makedirs(os.path.split(path)[0])
+        self.makedirs(os.path.dirname(path))
         abs_path = os.path.join(self.tmp_dir, path)
         with open(abs_path, 'w') as f:
             f.write(contents)

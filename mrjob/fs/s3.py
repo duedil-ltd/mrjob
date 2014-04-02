@@ -15,6 +15,7 @@ import fnmatch
 import logging
 import posixpath
 import socket
+from itertools import chain
 from urlparse import urlparse
 from StringIO import StringIO
 
@@ -106,19 +107,14 @@ class S3Filesystem(Filesystem):
         slash (foo and foo/ are different on S3)
         """
 
+        log.debug("ls %s", path_glob)
+
         # clean up the  base uri to ensure we have an equal uri to boto (s3://)
         # just incase we get passed s3n://
         scheme = urlparse(path_glob).scheme
 
         # support globs
         glob_match = GLOB_RE.match(path_glob)
-
-        # if it's a "file" (doesn't end with /), just check if it exists
-        if not glob_match and not path_glob.endswith('/'):
-            uri = path_glob
-            if self.get_s3_key(uri):
-                yield uri
-            return
 
         # we're going to search for all keys starting with base_uri
         if glob_match:
@@ -127,7 +123,18 @@ class S3Filesystem(Filesystem):
         else:
             base_uri = path_glob
 
-        for uri in self._s3_ls(base_uri):
+        # Check if we're only going to get results by using a / on the end
+        uris = self._s3_ls(base_uri)
+        try:
+            first = uris.next()
+            uris = chain([first], uris)
+        except (boto.exception.S3ResponseError, StopIteration):
+            try:
+                uris = self._s3_ls(base_uri.rstrip("/") + "/")
+            except (boto.exception.S3ResponseError, StopIteration):
+                return
+
+        for uri in uris:
             uri = "%s://%s/%s" % ((scheme,) + parse_s3_uri(uri))
 
             # enforce globbing
@@ -143,7 +150,8 @@ class S3Filesystem(Filesystem):
 
         bucket = s3_conn.get_bucket(bucket_name)
         for key in bucket.list(key_name):
-            yield s3_key_to_uri(key)
+            if key.size > 0:
+                yield s3_key_to_uri(key)
 
     def md5sum(self, path, s3_conn=None):
         k = self.get_s3_key(path, s3_conn=s3_conn)
@@ -192,11 +200,12 @@ class S3Filesystem(Filesystem):
         any files starting with that path.
         """
         # just fall back on ls(); it's smart
+        path = None
         try:
-            paths = self.ls(path_glob)
-        except boto.exception.S3ResponseError, e:
-            paths = []
-        return any(paths)
+            path = self.ls(path_glob).next()
+        except (StopIteration, boto.exception.S3ResponseError):
+            pass
+        return path is not None
 
     def path_join(self, dirname, filename):
         return posixpath.join(dirname, filename)
