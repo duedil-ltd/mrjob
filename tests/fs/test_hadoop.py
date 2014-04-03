@@ -53,46 +53,63 @@ class HadoopFSTestCase(MockSubprocessTestCase):
         self.env['USER'] = 'mrjob_tests'
         # don't set MOCK_HADOOP_LOG, we get command history other ways
 
-    def make_mock_file(self, name, contents='contents'):
+    def make_hdfs_file(self, name, contents='contents'):
         return self.makefile(os.path.join('mock_hdfs_root', name), contents)
+
+    def make_hdfs_dir(self, name):
+        return self.makedirs(os.path.join('mock_hdfs_root', name))
+
+    def make_hdfs_tree(self, path, files=None):
+        if files is None:
+            files = ('f', 'g/a/b', 'g/a/a/b')
+        test_files = []
+        for f in sorted(files):
+            f = os.path.join(path, f)
+            self.make_hdfs_file(f, f)
+            test_files.append("hdfs:///" + f)
+        self.assertEqual(
+            sorted(self.fs.ls("hdfs:///" + path.rstrip('/') + '/*')),
+            test_files
+        )
+        return path
 
     def test_ls_empty(self):
         self.assertEqual(list(self.fs.ls('hdfs:///')), [])
 
     def test_ls_basic(self):
-        self.make_mock_file('f')
+        self.make_hdfs_file('f')
         self.assertEqual(list(self.fs.ls('hdfs:///')), ['hdfs:///f'])
 
     def test_ls_basic_2(self):
-        self.make_mock_file('f')
-        self.make_mock_file('f2')
+        self.make_hdfs_file('f')
+        self.make_hdfs_file('f2')
         self.assertItemsEqual(list(self.fs.ls('hdfs:///')), ['hdfs:///f',
                                                         'hdfs:///f2'])
     def test_ls_recurse(self):
-        self.make_mock_file('f')
-        self.make_mock_file('d/f2')
+        self.make_hdfs_file('f')
+        self.make_hdfs_file('d/f2')
         self.assertItemsEqual(list(self.fs.ls('hdfs:///')),
                          ['hdfs:///f', 'hdfs:///d/f2'])
 
     def test_ls_s3n(self):
         # hadoop fs -lsr doesn't have user and group info when reading from s3
-        self.make_mock_file('f', 'foo')
-        self.make_mock_file('f3 win', 'foo' * 10)
+        self.make_hdfs_file('f', 'foo')
+        self.make_hdfs_file('f3 win', 'foo' * 10)
         self.assertItemsEqual(list(self.fs.ls('s3n://bucket/')),
                          ['s3n://bucket/f', 's3n://bucket/f3 win'])
 
     def test_single_space(self):
-        self.make_mock_file('foo bar')
+        self.make_hdfs_file('foo bar')
         self.assertItemsEqual(list(self.fs.ls('hdfs:///')), ['hdfs:///foo bar'])
 
     def test_double_space(self):
-        self.make_mock_file('foo  bar')
+        self.make_hdfs_file('foo  bar')
         self.assertItemsEqual(list(self.fs.ls('hdfs:///')), ['hdfs:///foo  bar'])
 
     def test_cat_uncompressed(self):
         # mockhadoop doesn't support compressed files, so we won't test for it.
         # this is only a sanity check anyway.
-        self.make_mock_file('data/foo', 'foo\nfoo\n')
+        self.make_hdfs_file('data/foo', 'foo\nfoo\n')
 
         remote_path = self.fs.path_join('hdfs:///data', 'foo')
 
@@ -112,7 +129,7 @@ class HadoopFSTestCase(MockSubprocessTestCase):
         self.assertEqual("".join(self.fs.cat(path)), content.getvalue())
 
     def test_write_overwrite(self):
-        self.make_mock_file('existing', 'this file already exists')
+        self.make_hdfs_file('existing', 'this file already exists')
         self.assertRaises(OSError, self.fs.write, 'hdfs:///existing',
                           'can not overwrite')
 
@@ -126,14 +143,14 @@ class HadoopFSTestCase(MockSubprocessTestCase):
 
     def test_copy_from_local_override(self):
         src = self.makefile('local-source', 'source')
-        self.make_mock_file('existing', 'this file already exists')
+        self.make_hdfs_file('existing', 'this file already exists')
         self.assertRaises(OSError, self.fs.copy_from_local,
                           'hdfs:///existing', src)
 
     def test_du(self):
-        self.make_mock_file('data1', 'abcd')
-        self.make_mock_file('more/data2', 'defg')
-        self.make_mock_file('more/data3', 'hijk')
+        self.make_hdfs_file('data1', 'abcd')
+        self.make_hdfs_file('more/data2', 'defg')
+        self.make_hdfs_file('more/data3', 'hijk')
 
         self.assertEqual(self.fs.du('hdfs:///'), 12)
         self.assertEqual(self.fs.du('hdfs:///data1'), 4)
@@ -152,31 +169,54 @@ class HadoopFSTestCase(MockSubprocessTestCase):
         self.assertEqual(self.fs.path_exists(path), False)
 
     def test_path_exists_yes(self):
-        self.make_mock_file('f')
+        self.make_hdfs_file('f')
         path = 'hdfs:///f'
         self.assertEqual(self.fs.path_exists(path), True)
 
     def test_rm(self):
-        local_path = self.make_mock_file('f')
+        local_path = self.make_hdfs_file('f')
         self.assertEqual(os.path.exists(local_path), True)
         self.fs.rm('hdfs:///f')
         self.assertEqual(os.path.exists(local_path), False)
 
-    def test_rm_dir(self):
-        # Create some test files to remove
-        base_dir = 'hdfs:///icio/goodbye/'
-        test_files = ["%s%s" % (base_dir, f) for f in (
-            'f', 'g/a/b', 'g/a/a/b'
-        )]
-        for f in test_files:
-            self.make_mock_file(f[8:] if f.startswith('hdfs:///') else f)
-        self.assertEqual(list(self.fs.ls(base_dir)), test_files)
+    def test_rm_tree_noslash_files(self):
+        path = "icio/goodbye-1"
+        hdfs_path = "hdfs:///%s" % path
+        real_path = self.make_hdfs_dir(path)
+        self.make_hdfs_tree(path)
 
-        # Remove the directory of files. Importantly: the path that we're using
-        # to remove files does NOT end in /* here. We're pointing to the
-        # directory and it is implied that all of its contents should go too
-        self.fs.rm(base_dir)
-        self.assertEqual(list(self.fs.ls(base_dir)), [])
+        self.fs.rm(hdfs_path.rstrip("/"))
+
+        # Check that the directory and its files have been removed
+        self.assertEqual(os.path.isdir(real_path), False)
+        self.assertEqual(self.fs.path_exists(path), False)
+        self.assertEqual(list(self.fs.ls(hdfs_path)), [])
+
+    def test_rm_tree_slash_files(self):
+        path = "icio/goodbye-2"
+        hdfs_path = "hdfs:///%s" % path
+        real_path = self.make_hdfs_dir(path)
+        self.make_hdfs_tree(path)
+
+        self.fs.rm(hdfs_path.rstrip("/") + "/")
+
+        # Check that the directory and its files have been removed
+        self.assertEqual(os.path.isdir(real_path), False)
+        self.assertEqual(self.fs.path_exists(hdfs_path), False)
+        self.assertEqual(list(self.fs.ls(hdfs_path)), [])
+
+    def test_rm_tree_star_files(self):
+        path = "icio/goodbye-3"
+        hdfs_path = "hdfs:///%s" % path
+        real_path = self.make_hdfs_dir(path)
+        self.make_hdfs_tree('icio/goodbye-3')
+
+        self.fs.rm(hdfs_path.rstrip("/") + "/*")
+
+        # Check that the files have been removed by not the root directory
+        self.assertEqual(os.path.isdir(real_path), True)
+        self.assertEqual(self.fs.path_exists(hdfs_path), True)
+        self.assertEqual(list(self.fs.ls(hdfs_path)), [])
 
     def test_touchz(self):
         # mockhadoop doesn't implement this.

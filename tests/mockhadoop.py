@@ -197,6 +197,33 @@ def hadoop_fs_cat(stdout, stderr, environ, *args):
         return 0
 
 
+def find_hdfs_files(hdfs_path_globs, environ):
+    failed = False
+    for hdfs_path_glob in hdfs_path_globs:
+        parsed = urlparse(hdfs_path_glob)
+        scheme = parsed.scheme
+        netloc = parsed.netloc
+
+        real_path_glob = hdfs_path_to_real_path(hdfs_path_glob, environ)
+        real_paths = glob.glob(real_path_glob)
+
+        if not real_paths:
+            yield hdfs_path_glob, True
+        else:
+            for real_path in real_paths:
+                if os.path.isdir(real_path):
+                    yield (real_path, scheme, netloc, 0), None
+                    for dirpath, dirnames, filenames in os.walk(real_path):
+                        for dirname in dirnames:
+                            yield (os.path.join(dirpath, dirname), scheme, netloc, 0), None
+                        for filename in filenames:
+                            path = os.path.join(dirpath, filename)
+                            size = os.path.getsize(path)
+                            yield (path, scheme, netloc, size), None
+                else:
+                    yield (real_path, scheme, netloc, 0), None
+
+
 def hadoop_fs_lsr(stdout, stderr, environ, *args):
     """Implements hadoop fs -lsr."""
     hdfs_path_globs = args or ['']
@@ -229,37 +256,19 @@ def hadoop_fs_lsr(stdout, stderr, environ, *args):
             (file_type, user_and_group, size, hdfs_path))
 
     failed = False
-    for hdfs_path_glob in hdfs_path_globs:
-        parsed = urlparse(hdfs_path_glob)
-        scheme = parsed.scheme
-        netloc = parsed.netloc
-
-        real_path_glob = hdfs_path_to_real_path(hdfs_path_glob, environ)
-        real_paths = glob.glob(real_path_glob)
-
-        paths = []
-        max_size = 0
-
-        if not real_paths:
-            print >> stderr, (
-                'lsr: Cannot access %s: No such file or directory.' %
-                hdfs_path_glob)
+    paths = []
+    max_size = 0
+    for path, err in find_hdfs_files(hdfs_path_globs, environ):
+        if err:
+            print >> stderr, "lsr: Cannot access %s: " \
+                             "No such file or directory." % path
             failed = True
         else:
-            for real_path in real_paths:
-                if os.path.isdir(real_path):
-                    for dirpath, dirnames, filenames in os.walk(real_path):
-                        paths.append((dirpath, scheme, netloc, 0))
-                        for filename in filenames:
-                            path = os.path.join(dirpath, filename)
-                            size = os.path.getsize(path)
-                            max_size = size if size > max_size else max_size
-                            paths.append((path, scheme, netloc, size))
-                else:
-                    paths.append((real_path, scheme, netloc, 0))
+            max_size = max(max_size, path[3])
+            paths.append(path)
 
-        for path in paths:
-            print >> stdout, ls_line(*path + (max_size,))
+    for path in paths:
+        print >> stdout, ls_line(*path + (max_size,))
 
     if failed:
         return -1
@@ -378,16 +387,20 @@ def hadoop_fs_rmr(stdout, stderr, environ, *args):
         args = args[1:]
 
     failed = False
-    for path in args:
-        real_path = hdfs_path_to_real_path(path, environ)
-        if os.path.isdir(real_path):
-            shutil.rmtree(real_path)
-        elif os.path.exists(real_path):
-            os.remove(real_path)
-        else:
-            stderr.write(
-                'rmr: cannot remove %s: No such file or directory.' % path)
+    paths = set()
+    for path, err in find_hdfs_files(args, environ):
+        if err:
             failed = True
+            stderr.write(
+                'rmr: cannot remove %s: No such file or directory.\n' % path)
+        else:
+            paths.add(path[0])
+
+    for path in sorted(paths, key=lambda p: (os.path.isdir(p), -len(p))):
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        elif os.path.exists(path):
+            os.remove(path)
 
     if failed:
         return -1
