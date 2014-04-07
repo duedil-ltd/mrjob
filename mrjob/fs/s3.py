@@ -134,6 +134,7 @@ class S3Filesystem(Filesystem):
             except (boto.exception.S3ResponseError, StopIteration):
                 return
 
+        prev_uri = None
         for uri in uris:
             uri = "%s://%s/%s" % ((scheme,) + parse_s3_uri(uri))
 
@@ -141,7 +142,14 @@ class S3Filesystem(Filesystem):
             if glob_match and not fnmatch.fnmatchcase(uri, path_glob):
                 continue
 
+            # If there's a key /data, consider it a file and don't yield other
+            # keys which might be considered within the directory, were it in
+            # fact a directory. This is the behaviour of hadoop fs in s3n://.
+            if prev_uri is not None and uri.startswith(prev_uri):
+                continue
+
             yield uri
+            prev_uri = uri.rstrip("/") + "/"
 
     def _s3_ls(self, uri):
         """Helper for ls(); doesn't bother with globbing or directories"""
@@ -150,8 +158,7 @@ class S3Filesystem(Filesystem):
 
         bucket = s3_conn.get_bucket(bucket_name)
         for key in bucket.list(key_name):
-            if key.size > 0:
-                yield s3_key_to_uri(key)
+            yield s3_key_to_uri(key)
 
     def md5sum(self, path, s3_conn=None):
         k = self.get_s3_key(path, s3_conn=s3_conn)

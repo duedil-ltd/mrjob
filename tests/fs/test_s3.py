@@ -97,27 +97,31 @@ class S3FSTestCase(SandboxedTestCase):
 
     def test_ls_recurse(self):
         paths = [
-            self.add_mock_s3_data('walrus', 'data/bar', 'bar\nbar\n'),
-            self.add_mock_s3_data('walrus', 'data/bar/baz', 'baz\nbaz\n'),
+            self.add_mock_s3_data('walrus', 'data/bar', ''),
             self.add_mock_s3_data('walrus', 'data/foo', 'foo\nfoo\n'),
         ]
+        hidden = self.add_mock_s3_data('walrus', 'data/bar/baz', 'baz\nbaz\n')
 
         self.assertEqual(list(self.fs.ls('s3://walrus/')), paths)
         self.assertEqual(list(self.fs.ls('s3://walrus/*')), paths)
 
+        # This is a fucky edge-case, but it's how hadoop fs behaves
+        self.assertEqual(list(self.fs.ls('s3://walrus/data/bar')), [paths[0]])
+        self.assertEqual(list(self.fs.ls('s3://walrus/data/bar/')), [hidden])
+
     def test_ls_glob(self):
         # A zero-byte directory created by some frameworks to represent a
         # "directory" within S3.
-        self.add_mock_s3_data('walrus', 'data', '')
+        data_path = self.add_mock_s3_data('walrus', 'data', '')
         paths = [
             # "Files"
-            self.add_mock_s3_data('walrus', 'data/bar', 'bar\nbar\n'),
             self.add_mock_s3_data('walrus', 'data/bar/baz', 'baz\nbaz\n'),
             self.add_mock_s3_data('walrus', 'data/foo', 'foo\nfoo\n'),
         ]
 
-        self.assertEqual(list(self.fs.ls('s3://walrus/data')), paths)
-        self.assertEqual(list(self.fs.ls('s3://walrus/*/baz')), [paths[1]])
+        self.assertEqual(list(self.fs.ls('s3://walrus/data')), [data_path])
+        self.assertEqual(list(self.fs.ls('s3://walrus/data/')), paths)
+        self.assertEqual(list(self.fs.ls('s3://walrus/*/baz')), [paths[0]])
 
     def test_ls_s3n(self):
         paths = [
@@ -186,22 +190,12 @@ class S3FSTestCase(SandboxedTestCase):
 
     def test_rm_tree_star_files(self):
         path = "icio/goodbye-3"
-
-        # We'll create a zero-byte file to represent the directory in this case
-        self.add_mock_s3_data('walrus', path, '')
-
         s3_path = self.add_mock_s3_tree('walrus', path)
         self.assertEqual(s3_path, "s3://walrus/icio/goodbye-3")
 
         self.fs.rm(s3_path.rstrip("/") + "/*")
 
         # Check that the directory and its files have been removed
-        # self.assertEqual(os.path.isdir(real_path), False). This behaviour is
-        # different to that of the Local and Hadoop filesystem implementations
-        # because S3 doesn't actually have a concept of directories -- they
-        # are a side-effect of having files with a certain naming pattern. If
-        # there are no files "within" the directory, then the directory
-        # doesn't actually exist.
         self.assertEqual(self.fs.path_exists(s3_path), False)
         self.assertEqual(list(self.fs.ls(s3_path)), [])
 
