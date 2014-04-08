@@ -104,8 +104,8 @@ class SandboxedTestCase(EmptyMrjobConfTestCase):
             for f in files
         ]
         self.assertEqual(
-            list(self.fs.ls(path.rstrip('/') + '/*')),
-            test_files
+            sorted(self.fs.ls(path.rstrip('/') + '/*')),
+            sorted(test_files)
         )
         return path
 
