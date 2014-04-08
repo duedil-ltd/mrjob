@@ -213,7 +213,7 @@ class HadoopFSTestCase(MockSubprocessTestCase):
 
         self.fs.rm(hdfs_path.rstrip("/") + "/*")
 
-        # Check that the files have been removed by not the root directory
+        # Check that the files have been removed but not the root directory
         self.assertEqual(os.path.isdir(real_path), True)
         self.assertEqual(self.fs.path_exists(hdfs_path), True)
         self.assertEqual(list(self.fs.ls(hdfs_path)), [])
