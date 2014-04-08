@@ -198,7 +198,6 @@ def hadoop_fs_cat(stdout, stderr, environ, *args):
 
 
 def find_hdfs_files(hdfs_path_globs, environ):
-    failed = False
     for hdfs_path_glob in hdfs_path_globs:
         parsed = urlparse(hdfs_path_glob)
         scheme = parsed.scheme
