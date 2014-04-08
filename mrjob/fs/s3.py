@@ -142,9 +142,9 @@ class S3Filesystem(Filesystem):
             if glob_match and not fnmatch.fnmatchcase(uri, path_glob):
                 continue
 
-            # If there's a key /data, consider it a file and don't yield other
-            # keys which might be considered within the directory, were it in
-            # fact a directory. This is the behaviour of hadoop fs in s3n://.
+            # If there are keys /data and /data/my_file then we consider there
+            # to be a file /data, overriding there being a directory called
+            # /data containing a file my_file. We discard /data/my_file.
             if prev_uri is not None and uri.startswith(prev_uri):
                 continue
 
