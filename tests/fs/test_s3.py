@@ -172,7 +172,6 @@ class S3FSTestCase(SandboxedTestCase):
         self.fs.rm(s3_path.rstrip("/"))
 
         # Check that the directory and its files have been removed
-        # self.assertEqual(os.path.isdir(real_path), False)
         self.assertEqual(self.fs.path_exists(s3_path), False)
         self.assertEqual(list(self.fs.ls(s3_path)), [])
 
@@ -184,7 +183,6 @@ class S3FSTestCase(SandboxedTestCase):
         self.fs.rm(s3_path.rstrip("/") + "/")
 
         # Check that the directory and its files have been removed
-        # self.assertEqual(os.path.isdir(real_path), False)
         self.assertEqual(self.fs.path_exists(s3_path), False)
         self.assertEqual(list(self.fs.ls(s3_path)), [])
 
