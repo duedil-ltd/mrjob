@@ -167,7 +167,7 @@ class LocalFSTestCase(SandboxedTestCase):
         path = self.maketree("icio/goodbye-3")
         self.fs.rm(path.rstrip("/") + "/*")
 
-        # Check that the files have been removed by not the root directory
+        # Check that the files have been removed but not the root directory
         self.assertEqual(os.path.isdir(path), True)
         self.assertEqual(self.fs.path_exists(path), True)
         self.assertEqual(list(self.fs.ls(path)), [])
