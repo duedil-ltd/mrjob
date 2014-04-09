@@ -145,6 +145,33 @@ class LocalFSTestCase(SandboxedTestCase):
         self.fs.rm(path)
         self.assertEqual(self.fs.path_exists(path), False)
 
+    def test_rm_tree_noslash_files(self):
+        path = self.maketree("icio/goodbye-1")
+        self.fs.rm(path.rstrip("/"))
+
+        # Check that the directory and its files have been removed
+        self.assertEqual(os.path.isdir(path), False)
+        self.assertEqual(self.fs.path_exists(path), False)
+        self.assertEqual(list(self.fs.ls(path)), [])
+
+    def test_rm_tree_slash_files(self):
+        path = self.maketree("icio/goodbye-2")
+        self.fs.rm(path.rstrip("/") + "/")
+
+        # Check that the directory and its files have been removed
+        self.assertEqual(os.path.isdir(path), False)
+        self.assertEqual(self.fs.path_exists(path), False)
+        self.assertEqual(list(self.fs.ls(path)), [])
+
+    def test_rm_tree_star_files(self):
+        path = self.maketree("icio/goodbye-3")
+        self.fs.rm(path.rstrip("/") + "/*")
+
+        # Check that the files have been removed but not the root directory
+        self.assertEqual(os.path.isdir(path), True)
+        self.assertEqual(self.fs.path_exists(path), True)
+        self.assertEqual(list(self.fs.ls(path)), [])
+
     def test_touchz(self):
         path = os.path.join(self.tmp_dir, 'f')
         self.fs.touchz(path)

@@ -241,21 +241,20 @@ class HadoopFilesystem(Filesystem):
         if not is_uri(path_glob):
             super(HadoopFilesystem, self).rm(path_glob)
 
-        if self.path_exists(path_glob):
-            # hadoop fs -rmr will print something like:
-            # Moved to trash: hdfs://hdnamenode:54310/user/dave/asdf
-            # to STDOUT, which we don't care about.
-            #
-            # if we ask to delete a path that doesn't exist, it prints
-            # to STDERR something like:
-            # rmr: <path>
-            # which we can safely ignore
-            try:
-                self.invoke_hadoop(
-                    ['fs', '-rmr', path_glob],
-                    return_stdout=True, ok_stderr=[HADOOP_RMR_NO_SUCH_FILE])
-            except CalledProcessError:
-                raise IOError("Could not rm %s" % path_glob)
+        # hadoop fs -rmr will print something like:
+        # Moved to trash: hdfs://hdnamenode:54310/user/dave/asdf
+        # to STDOUT, which we don't care about.
+        #
+        # if we ask to delete a path that doesn't exist, it prints
+        # to STDERR something like:
+        # rmr: <path>
+        # which we can safely ignore
+        try:
+            self.invoke_hadoop(
+                ['fs', '-rmr', path_glob],
+                return_stdout=True, ok_stderr=[HADOOP_RMR_NO_SUCH_FILE])
+        except CalledProcessError:
+            raise IOError("Could not rm %s" % path_glob)
 
     def touchz(self, dest):
         try:
