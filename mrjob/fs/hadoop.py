@@ -33,6 +33,7 @@ from mrjob.parse import is_uri
 from mrjob.parse import urlparse
 from mrjob.util import cmd_line
 from mrjob.util import read_file
+from mrjob.compat import version_gte
 
 
 log = logging.getLogger('mrjob.fs.hadoop')
@@ -234,9 +235,12 @@ class HadoopFilesystem(Filesystem):
         return read_file(filename, stream())
 
     def mkdir(self, path):
+        args = ['fs', '-mkdir']
+        if version_gte(self.get_hadoop_version(), "2.0.0"):
+            args.append("-p")
+        args.append(path)
         try:
-            self.invoke_hadoop(
-                ['fs', '-mkdir', path], ok_stderr=[HADOOP_FILE_EXISTS_RE])
+            self.invoke_hadoop(args, ok_stderr=[HADOOP_FILE_EXISTS_RE])
         except CalledProcessError:
             raise IOError("Could not mkdir %s" % path)
 
