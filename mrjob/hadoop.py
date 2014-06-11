@@ -265,11 +265,11 @@ class HadoopJobRunner(MRJobRunner):
 
     def _mkdir_on_hdfs(self, path):
         log.debug('Making directory %s on HDFS' % path)
-        self.invoke_hadoop(['fs', '-mkdir', path])
+        self.fs.mkdir(path)
 
     def _upload_to_hdfs(self, path, target):
         log.debug('Uploading %s -> %s on HDFS' % (path, target))
-        self.invoke_hadoop(['fs', '-put', path, target])
+        self.fs.copy_from_local(target, path)
 
     def _dump_stdin_to_local_file(self):
         """Dump sys.stdin to a local file, and return the path to it."""
