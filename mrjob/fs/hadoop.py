@@ -47,6 +47,9 @@ HADOOP_LSR_NO_SUCH_FILE = re.compile(
 # used by rm() (see below)
 HADOOP_RMR_NO_SUCH_FILE = re.compile(r'^rmr: hdfs://.*$')
 
+# find version string in "Hadoop 0.20.203" etc.
+HADOOP_VERSION_RE = re.compile(r'^.*?(?P<version>(\d|\.)+).*?$')
+
 
 class HadoopFilesystem(Filesystem):
     """Filesystem for URIs accepted by ``hadoop fs``. Typically you will get
@@ -58,6 +61,7 @@ class HadoopFilesystem(Filesystem):
         """:param hadoop_bin: path to ``hadoop`` binary"""
         super(HadoopFilesystem, self).__init__()
         self._hadoop_bin = hadoop_bin
+        self._hadoop_version = None
 
     def can_handle_path(self, path):
         return is_uri(path)
@@ -111,6 +115,21 @@ class HadoopFilesystem(Filesystem):
             return stdout
         else:
             return proc.returncode
+
+    def get_hadoop_version(self):
+        """Invoke the hadoop executable to determine its version"""
+        if not self._hadoop_version:
+            stdout = self.invoke_hadoop(['version'], return_stdout=True)
+            if stdout:
+                first_line = stdout.split('\n')[0]
+                m = HADOOP_VERSION_RE.match(first_line)
+                if m:
+                    self._hadoop_version = m.group('version')
+                    log.info("Using Hadoop version %s" % self._hadoop_version)
+                    return self._hadoop_version
+            self._hadoop_version = '0.20.203'
+            log.info("Unable to determine Hadoop version. Assuming 0.20.203.")
+        return self._hadoop_version
 
     def write(self, path, content):
         fd, content_path = mkstemp(suffix='hadoop-upload')

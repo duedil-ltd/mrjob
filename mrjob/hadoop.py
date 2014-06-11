@@ -66,9 +66,6 @@ HADOOP_RMR_NO_SUCH_FILE = re.compile(r'^rmr: hdfs://.*$')
 HADOOP_JOB_TIMESTAMP_RE = re.compile(
     r'(INFO: )?Running job: job_(?P<timestamp>\d+)_(?P<step_num>\d+)')
 
-# find version string in "Hadoop 0.20.203" etc.
-HADOOP_VERSION_RE = re.compile(r'^.*?(?P<version>(\d|\.)+).*?$')
-
 
 def find_hadoop_streaming_jar(path):
     """Return the path of the hadoop streaming jar inside the given
@@ -197,9 +194,6 @@ class HadoopJobRunner(MRJobRunner):
             self._output_dir or
             posixpath.join(self._hdfs_tmp_dir, 'output'))
 
-        # init hadoop version cache
-        self._hadoop_version = None
-
     @property
     def fs(self):
         """:py:class:`mrjob.fs.base.Filesystem` object for HDFS and the local
@@ -210,21 +204,6 @@ class HadoopJobRunner(MRJobRunner):
                 HadoopFilesystem(self._opts['hadoop_bin']),
                 LocalFilesystem())
         return self._fs
-
-    def get_hadoop_version(self):
-        """Invoke the hadoop executable to determine its version"""
-        if not self._hadoop_version:
-            stdout = self.invoke_hadoop(['version'], return_stdout=True)
-            if stdout:
-                first_line = stdout.split('\n')[0]
-                m = HADOOP_VERSION_RE.match(first_line)
-                if m:
-                    self._hadoop_version = m.group('version')
-                    log.info("Using Hadoop version %s" % self._hadoop_version)
-                    return self._hadoop_version
-            self._hadoop_version = '0.20.203'
-            log.info("Unable to determine Hadoop version. Assuming 0.20.203.")
-        return self._hadoop_version
 
     def _run(self):
         self._check_input_exists()
