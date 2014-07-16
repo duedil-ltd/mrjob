@@ -205,6 +205,9 @@ class HadoopJobRunner(MRJobRunner):
                 LocalFilesystem())
         return self._fs
 
+    def get_hadoop_version(self):
+        return self.fs.get_hadoop_version()
+
     def _run(self):
         self._check_input_exists()
         self._create_setup_wrapper_script()
