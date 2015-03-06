@@ -65,8 +65,7 @@ class CompositeFilesystem(Filesystem):
         return self._do_action('write', path, content)
 
     def copy_from_local(self, path, local_file):
-        with open(local_file, "r") as fd:
-            return self._do_action('write', path, fd)
+        return self._do_action('copy_from_local', path, local_file)
 
     def du(self, path_glob):
         return self._do_action('du', path_glob)
