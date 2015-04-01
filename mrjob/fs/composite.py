@@ -40,6 +40,12 @@ class CompositeFilesystem(Filesystem):
                 return getattr(fs, name)
         raise AttributeError(name)
 
+    def __getstate__(self):
+        return self.filesystems
+
+    def __setstate__(self, state):
+        self.filesystems = state
+
     def _do_action(self, action, path, *args, **kwargs):
         """Call **action** on each filesystem object in turn. If one raises an
         :py:class:`IOError`, save the exception and try the rest. If none
@@ -72,6 +78,9 @@ class CompositeFilesystem(Filesystem):
 
     def ls(self, path_glob):
         return self._do_action('ls', path_glob)
+
+    def cat(self, path_glob):
+        return self._do_action('cat', path_glob)
 
     def _cat_file(self, path):
         for line in self._do_action('_cat_file', path):
