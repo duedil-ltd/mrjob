@@ -79,6 +79,9 @@ class CompositeFilesystem(Filesystem):
     def ls(self, path_glob):
         return self._do_action('ls', path_glob)
 
+    def cat(self, path_glob):
+        return self._do_action('cat', path_glob)
+
     def _cat_file(self, path):
         for line in self._do_action('_cat_file', path):
             yield line
